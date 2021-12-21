@@ -1,0 +1,10 @@
+prefix=C:/Program Files/qhull
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: qhull
+Description: Qhull shared library
+Version: 8.0.0
+Libs: -L${libdir} -lqhull
+Cflags: -I${includedir}
+

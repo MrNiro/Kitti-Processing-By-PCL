@@ -2,12 +2,16 @@
 	1.大众方法：启用源服务器加载/检查路径  —— 都无效...
 	2.建立win32控制台项目/ctrl+F5直接运行不调试
 	【actually这个问题并没有什么影响】
+
 ·C4996		
 	属性-》C\C++ -》关闭SDL检查
+
 ·C1010 缺少预编译头文件
 	属性-》C\C++ -》预编译头
 ·修改flann下dist.h源码（pop_t typedef前移）
+
 ·addSphere具有3种重载，利用coefficient添加不会报错，否则出现内存异常
+
 ·VTK相关：no override found for 'vtkPolyDataMapper' 及内存异常
 		各类警告频出，但并未影响运行
 	原因：VS直接编译 缺少cmake相关设置
@@ -18,7 +22,10 @@
 		VTK_MODULE_INIT(vtkRenderingOpenGL2); 
 		VTK_MODULE_INIT(vtkInteractionStyle);
 	      2.连接器添加附加库vtkRenderingOpenGL2...	
+
 ·ImmediateModeRenderingOff & ImmediateModeRenderingOn 在vtk8.2之后被移除
 	注释相关代码即可
+
 ·宏定义必须为简单标识符	选择仅生成即可
+
 ·链接库中必须继承系统自带的kernel32.lib等

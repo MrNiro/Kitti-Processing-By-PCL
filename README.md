@@ -1,7 +1,7 @@
 # kitti-processing-with-pcl
 
-利用PCL对KITTI数据进行处理的简单工程，功能包括点云去噪、精简、分割、聚类、目标提取等
+This is a Road Traffic Elements Extraction project on Vehicle Laser Point Cloud (KITTI), based on PCL.
 
-代码尚未整理成类，仅为面向过程的函数式编程
+利用PCL对KITTI数据进行处理的简单工程，功能包括点云去噪、精简、分割、聚类、目标提取等
 
 代码中对相关功能有较详细的注释

@@ -123,6 +123,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="include\CloudCluster.h" />
     <ClInclude Include="include\GroundFilter.h" />
     <ClInclude Include="include\MathTools.h" />
     <ClInclude Include="include\NoiseFilter.h" />
@@ -131,6 +132,7 @@
     <ClInclude Include="include\Config.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\CloudCluster.cpp" />
     <ClCompile Include="src\CloudIO.cpp" />
     <ClCompile Include="src\GroundFilter.cpp" />
     <ClCompile Include="src\main.cpp" />

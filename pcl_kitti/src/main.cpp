@@ -3,6 +3,7 @@
 #include <CloudVisual.h>
 #include <GroundFilter.h>
 #include <CloudIO.h>
+#include <CloudCluster.h>
 
 #include <iostream>
 #include <fstream>
@@ -157,111 +158,6 @@ void modified_intensity(PointCloud<PointT>::Ptr c)
 	}
 }
 
-vector<PointCloud<PointT>::Ptr>* euclidean_cluster(PointCloud<PointT>::Ptr c, float dis = 0.5, int min_size = 50, int ifwrite = 0)
-{
-	pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);
-	tree->setInputCloud(c);
-
-	std::vector<pcl::PointIndices> cluster_indices;
-	pcl::EuclideanClusterExtraction<PointT> ec;
-
-	ec.setClusterTolerance(dis);
-	ec.setMinClusterSize(min_size);
-	ec.setMaxClusterSize(10000);
-	ec.setSearchMethod(tree);
-	ec.setInputCloud(c);
-	ec.extract(cluster_indices);
-
-	//cout << "Extracted " << cluster_indices.size() << " cluster" << endl;
-	vector<pcl::PointCloud<PointT>::Ptr> *all_cluster(new vector<pcl::PointCloud<PointT>::Ptr>);
-
-	int j = 0;
-	for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
-	{
-		pcl::PointCloud<PointT>::Ptr cloud_cluster(new pcl::PointCloud<PointT>);
-		for (std::vector<int>::const_iterator pit = it->indices.begin(); pit != it->indices.end(); pit++)
-			cloud_cluster->points.push_back(c->points[*pit]);
-		cloud_cluster->width = cloud_cluster->points.size();
-		cloud_cluster->height = 1;
-		cloud_cluster->is_dense = true;
-
-		//std::cout << "Cluster " << j << ": " << cloud_cluster->points.size() << " data points." << std::endl;
-		//cloud_visualization(cloud_cluster);
-
-		if (ifwrite == 1)
-		{
-			string outfile = "cluster/cluster_" + to_string(j) + ".pcd";
-			pcl::PCDWriter writer;
-			writer.write(outfile, *cloud_cluster);
-		}
-
-		all_cluster->push_back(cloud_cluster);
-		j++;
-	}
-	return all_cluster;
-}
-
-void cal_smooth(PointCloud<PointT>::Ptr c, PointCloud<PointT>::Ptr new_c, pcl::search::KdTree<PointT>::Ptr tree, int idx, bool *idx_judge)
-{
-	if (idx_judge[idx])
-		return;
-	idx_judge[idx] = true;
-
-	float radius = 0.3;
-
-	std::vector<int> PointIdx;
-	std::vector<float> square_dis;
-
-	PointT point = c->points[idx];
-	int neighbor = tree->radiusSearch(point, radius, PointIdx, square_dis);
-	if (neighbor == 0)
-		return;
-
-	float sum_dis = 0;
-	for (vector<float>::const_iterator pit = square_dis.begin(); pit != square_dis.end(); pit++)
-		sum_dis += *pit;
-	float smooth = sqrt(sum_dis) / neighbor / radius;
-	//cout << smooth << endl;
-
-	if (smooth > 0 && smooth < 0.15)
-	{
-		//idx_judge[idx] = true;
-		new_c->push_back(point);
-		//cloud->erase(cloud->begin() + idx);
-		for (vector<int>::const_iterator pit = PointIdx.begin(); pit != PointIdx.end(); pit++)
-			if (!idx_judge[*pit])
-				cal_smooth(c, new_c, tree, *pit, idx_judge);
-	}
-}
-
-vector<PointCloud<PointT>::Ptr>* re_cluster(PointCloud<PointT>::Ptr c)
-{
-	pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);
-	tree->setInputCloud(c);
-	vector<PointCloud<PointT>::Ptr>* all_cluster(new vector<PointCloud<PointT>::Ptr>);
-
-	//pcl::visualization::CloudVisual viewer("Viewer");
-	//viewer.runOnVisualizationThreadOnce(viewerOneOff);
-
-	bool idx_judge[10000] = { false };
-	int row_size = c->size();
-	for (int i = 0; i < row_size; i++)
-	{
-		if (idx_judge[i])
-			continue;
-		PointCloud<PointT>::Ptr new_c(new PointCloud<PointT>);
-		cal_smooth(c, new_c, tree, i, idx_judge);
-
-		if (!new_c->empty() && new_c->size() > 30)
-		{
-			//viewer.showCloud(new_c);
-			//system("pause");
-			all_cluster->push_back(new_c);
-		}
-	}
-	return all_cluster;
-}
-
 bool pole_fitting(PointCloud<PointT>::Ptr row_c)
 {
 	PointT minPt, maxPt;
@@ -341,7 +237,7 @@ void pole_detecting(PointCloud<PointT>::Ptr c)
 	noise_filter.set_cloud(pole_cloud);
 	noise_filter.voxel_grid_filter(0.1);
 
-	vector<PointCloud<PointT>::Ptr> *non_ground_clusters = euclidean_cluster(pole_cloud, 0.3, 50);
+	vector<PointCloud<PointT>::Ptr> *non_ground_clusters = CloudCluster::euclidean_cluster(pole_cloud, 0.3, 50);
 	pole_cloud->clear();
 	//pcl::visualization::CloudVisual viewer("Viewer");
 	//viewer.runOnVisualizationThreadOnce(viewerOneOff);
@@ -361,7 +257,7 @@ void pole_detecting(PointCloud<PointT>::Ptr c)
 		{
 			//viewer.showCloud(cluster);
 			//system("pause");
-			std::vector<PointCloud<PointT>::Ptr>* new_clusters = re_cluster(cluster);
+			std::vector<PointCloud<PointT>::Ptr>* new_clusters = CloudCluster::advanced_euclidean_cluster(cluster);
 			for (int j = 0; j < new_clusters->size(); j++)
 			{
 				//viewer.showCloud((*new_clusters)[j]);
@@ -451,7 +347,7 @@ PointCloud<PointT>::Ptr density_fitting(PointCloud<PointT>::Ptr c, float size, i
 
 void bound_fitting(PointCloud<PointT>::Ptr c)
 {
-	std::vector<PointCloud<PointT>::Ptr> *clusters = euclidean_cluster(c, 0.3, 10);
+	std::vector<PointCloud<PointT>::Ptr> *clusters = CloudCluster::euclidean_cluster(c, 0.3, 10);
 	c->clear();
 	std::vector<float> all_a;
 	float left_side = 15, right_side = -15;
@@ -483,7 +379,7 @@ void bound_fitting(PointCloud<PointT>::Ptr c)
 
 void bound_fitting(PointCloud<PointT>::Ptr c, float track_k, float track_b)
 {
-	std::vector<PointCloud<PointT>::Ptr> *clusters = euclidean_cluster(c, 0.3, 10);
+	std::vector<PointCloud<PointT>::Ptr> *clusters = CloudCluster::euclidean_cluster(c, 0.3, 10);
 	c->clear();
 	
 	float positive_side = 10, negative_side = -10;
@@ -608,7 +504,7 @@ void pole_processing(string data_num, int first, int last)
 	NoiseFilter noise_filter = NoiseFilter(cloud, false);
 	noise_filter.voxel_grid_filter(0.1);
 
-	vector<PointCloud<PointT>::Ptr> *pole_clusters = euclidean_cluster(cloud, 0.3, 30);
+	vector<PointCloud<PointT>::Ptr> *pole_clusters = CloudCluster::euclidean_cluster(cloud, 0.3, 30);
 	CloudIO::load_pcd_data(cloud, "exp_data/data_" + data_num + "/", "non_ground_" + to_string(first) + "-" + to_string(last) + ".pcd");
 	noise_filter.voxel_grid_filter(0.1);
 
@@ -680,7 +576,7 @@ void tag_line_detecting(string data_num, int first, int last, int if_write = 1)
 	noise_filter.voxel_grid_filter(0.1);
 	viewer->cloud_visualization();
 
-	vector<PointCloud<PointT>::Ptr> *clusters = euclidean_cluster(tag_cloud, 0.3, 10);
+	vector<PointCloud<PointT>::Ptr> *clusters = CloudCluster::euclidean_cluster(tag_cloud, 0.3, 10);
 	tag_cloud->clear();
 
 	for (int i = 0; i < clusters->size(); i++)
@@ -726,7 +622,7 @@ void tag_line_detecting(string data_num, int first, int last, int if_write = 1)
 				if (j >= p->size())
 					break;
 			}
-			vector<PointCloud<PointT>::Ptr> *p_clu = euclidean_cluster(p, 0.3, 5);
+			vector<PointCloud<PointT>::Ptr> *p_clu = CloudCluster::euclidean_cluster(p, 0.3, 5);
 			for (int m = 0; m < p_clu->size(); m++)
 			{
 				PointCloud<PointT>::Ptr q = (*p_clu)[m];
@@ -736,7 +632,7 @@ void tag_line_detecting(string data_num, int first, int last, int if_write = 1)
 			}
 			/*
 			//尝试基于平滑度约束再聚类
-			std::vector<PointCloud<PointT>::Ptr>* new_clusters = re_cluster(p);
+			std::vector<PointCloud<PointT>::Ptr>* new_clusters = advanced_euclidean_cluster(p);
 			cout << "new clusters: " << new_clusters->size() << endl;
 			for (int j = 0; j < new_clusters->size(); j++)
 				if (line_fitting((*new_clusters)[j], a, k) < 0.3)

@@ -2,6 +2,7 @@
 
 
 GroundFilter::GroundFilter(PointCloud<PointT>::Ptr c, bool silent) {
+	this->row_cloud = c;
 	this->silent = silent;
 }
 
